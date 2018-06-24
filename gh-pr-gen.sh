@@ -5,7 +5,7 @@ set -e
 ghprgen::usage() {
 cat <<-EOH
 Usage:
-  $(basename $0) [-h] [-t title] <org> <repo> <base> <head>
+  $(basename $0) [-h] [-t title] [-r remote] <org> <repo> <base> <head>
 
   arguments:
     org : Creation target GitHub organization name
@@ -17,12 +17,13 @@ Usage:
     GHPRGEN_GITHUB_API_TOKEN: GitHub personal api token
 
   options:
-    -t title: pull reuqest title (default: "Merge <base> into <head>")
-    -h      : show usage
+    -t title : pull reuqest title (default: "Merge <base> into <head>") (wip)
+    -r remote: use remote repository name to take merge commit (wip)
+    -h       : show usage
 
   example:
-    $0 yasuhrioki gh-pr-gen.sh yasuhiroki:master feature-branch
-    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhrioki gh-pr-gen.sh yasuhiroki:master feature-branch
+    $0 yasuhiroki gh-pr-gen.sh yasuhiroki:master feature-branch
+    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhiroki gh-pr-gen.sh master feature-branch
 EOH
 }
 
@@ -67,7 +68,7 @@ ghprgen::print_pr_body() {
 
   local req_header="$(ghprgen::gh::authrization_header)"
 
-  git log --pretty=format:"%s" --reverse --merges ${base}..${head/*:} \
+  git log --pretty=format:"%s" --reverse --merges ${base}..${head} \
     | \
     cut -d' ' -f4 \
     | \
@@ -138,7 +139,7 @@ ghprgen::main() {
   : ${base:?}
   : ${head:?}
 
-  (( $(git log --pretty=format:"%s" --reverse --merges ${base}..${head/*:} | wc -l) > 0 )) || {
+  (( $(git log --pretty=format:"%s" --reverse --merges ${base}..${head} | wc -l) > 0 )) || {
     echo "Don't have merge commit"
     return 1
   }
