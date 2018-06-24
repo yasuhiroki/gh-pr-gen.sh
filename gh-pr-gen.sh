@@ -2,6 +2,30 @@
 
 set -e
 
+ghprgen::usage() {
+cat <<-EOH
+Usage:
+  $(basename $0) [-h] [-t title] <org> <repo> <base> <head>
+
+  arguments:
+    org : Creation target GitHub organization name
+    repo: Creation target GitHub repository name
+    base: Pull request source branch
+    head: Pull request target branch
+
+  envionment:
+    GHPRGEN_GITHUB_API_TOKEN: GitHub personal api token
+
+  options:
+    -t title: pull reuqest title (default: "Merge <base> into <head>")
+    -h      : show usage
+
+  example:
+    $0 yasuhrioki gh-pr-gen.sh yasuhiroki:master feature-branch
+    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhrioki gh-pr-gen.sh yasuhiroki:master feature-branch
+EOH
+}
+
 ghprgen::required_check() {
   local err=0
   for _c in git jq curl
@@ -101,30 +125,6 @@ ghprgen::cmd::update_pr() {
   jq -sR '{title: "'"${title}"'" , body: ., base: "'"${base}"'"}' \
     | \
     curl -XPATCH -sS ${req_header:+-H "${req_header}"} ${pr_url} -d @-
-}
-
-ghprgen::usage() {
-cat <<-EOH
-Usage:
-  $(basename $0) -h <org> <repo> <base> <head>
-
-  arguments:
-    org : Creation target GitHub organization name
-    repo: Creation target GitHub repository name
-    base: Pull request source branch
-    head: Pull request target branch
-
-  envionment:
-    GHPRGEN_GITHUB_API_TOKEN: GitHub personal api token
-
-  options:
-    -t title: pull reuqest title (default: "Merge <base> into <head>")
-    -h      : show usage
-
-  example:
-    $0 yasuhrioki gh-pr-gen.sh yasuhiroki:master feature-branch
-    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhrioki gh-pr-gen.sh yasuhiroki:master feature-branch
-EOH
 }
 
 ghprgen::main() {
