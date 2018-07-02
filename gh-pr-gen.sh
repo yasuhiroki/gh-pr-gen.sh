@@ -17,12 +17,12 @@ Usage:
     GHPRGEN_GITHUB_API_TOKEN: GitHub personal api token
 
   options:
-    -t title : pull reuqest title (default: "Merge <base> into <head>") (wip)
-    -r remote: use remote repository name to take merge commit (wip)
-    -h       : show usage
+    -t title : Pull reuqest title (default: "Merge <base> into <head>") (wip)
+    -r remote: Use remote repository name to take merge commit (wip)
+    -h       : Show usage
 
   example:
-    $0 yasuhiroki gh-pr-gen.sh yasuhiroki:master feature-branch
+    $0 yasuhiroki gh-pr-gen.sh master feature-branch
     GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhiroki gh-pr-gen.sh master feature-branch
 EOH
 }
@@ -54,6 +54,12 @@ ghprgen::gh::authrization_header() {
   fi
 }
 
+ghprgen::git::log() {
+  local base="${1}"
+  local head="${2}"
+  git log --pretty=format:"%s%x0a" --reverse --merges origin/${base}..origin/${head}
+}
+
 ghprgen::print_pr_header() {
   echo "# Releases"
 }
@@ -68,7 +74,7 @@ ghprgen::print_pr_body() {
 
   local req_header="$(ghprgen::gh::authrization_header)"
 
-  git log --pretty=format:"%s" --reverse --merges ${base}..${head} \
+  ghprgen::git::log "${base}" "${head}" \
     | \
     cut -d' ' -f4 \
     | \
@@ -139,13 +145,13 @@ ghprgen::main() {
   : ${base:?}
   : ${head:?}
 
-  (( $(git log --pretty=format:"%s" --reverse --merges ${base}..${head} | wc -l) > 0 )) || {
+  (( $(ghprgen::git::log "${base}" "${head}" | wc -l) > 0 )) || {
     echo "Don't have merge commit"
     return 1
   }
 
   local pulls_api="$(ghprgen::gh::api::pulls ${org} ${repo})"
-  local title="Merge ${head} into ${base}"
+  local title="${title:-Merge ${head} into ${base}}"
 
   local pr_url="$(ghprgen::get_pr_url ${base} ${head} ${pulls_api})"
   if [ -z "${pr_url}" -o "${pr_url}" = "null" ]; then
@@ -162,6 +168,27 @@ ghprgen::main() {
     } | ghprgen::cmd::create_pr ${base} ${head} "${title}" ${pr_url}
   fi
 }
+
+ghprgen::options() {
+  while getopts t:r:h OPT
+  do
+    case $OPT in
+    t)
+      title="$OPTARG"
+      ;;
+    r)
+      remote="$OPTARG"
+      ;;
+    *)
+      usage
+      exit 1
+      ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+}
+
+ghprgen::options
 
 (ghprgen::main $@) || {
   echo "Failed!"
