@@ -61,11 +61,11 @@ ghprgen::git::log() {
   git log --pretty=format:"%s%x0a" --reverse --merges ${upstream:-origin}/${base}..${remote:-origin}/${head#*:}
 }
 
-ghprgen::print_pr_header() {
+ghprgen::print_pr_header::release() {
   echo "# Releases"
 }
 
-ghprgen::print_pr_body() {
+ghprgen::print_pr_body::merged() {
   local base="${1}"
   local head="${2}"
   local pulls_api="${3}"
@@ -135,6 +135,19 @@ ghprgen::cmd::update_pr() {
     curl -XPATCH -sS ${req_header:+-H "${req_header}"} ${pr_url} -d @-
 }
 
+ghprgen::print_pr_body() {
+  base="$1"
+  head="$2"
+  pulls_api="$3"
+  : ${base:?}
+  : ${head:?}
+  : ${pulls_api:?}
+
+  ghprgen::print_pr_header::release
+  echo
+  ghprgen::print_pr_body::merged ${base} ${head} ${pulls_api}
+}
+
 ghprgen::main() {
   org="$1"
   repo="$2"
@@ -156,17 +169,13 @@ ghprgen::main() {
 
   local pr_url="$(ghprgen::get_pr_url ${base} ${head} ${pulls_api})"
   if [ -z "${pr_url}" -o "${pr_url}" = "null" ]; then
-    {
-      ghprgen::print_pr_header
-      echo
-      ghprgen::print_pr_body ${base} ${head} ${pulls_api}
-    } | ghprgen::cmd::create_pr ${base} ${head} "${title}" ${pulls_api}
+    ghprgen::print_pr_body ${base} ${head} ${pulls_api} \
+      | \
+    ghprgen::cmd::create_pr ${base} ${head} "${title}" ${pulls_api}
   else
-    {
-      ghprgen::print_pr_header
-      echo
-      ghprgen::print_pr_body ${base} ${head} ${pulls_api}
-    } | ghprgen::cmd::update_pr ${base} ${head} "${title}" ${pr_url}
+    ghprgen::print_pr_body ${base} ${head} ${pulls_api} \
+      | \
+    ghprgen::cmd::update_pr ${base} ${head} "${title}" ${pr_url}
   fi
 }
 
