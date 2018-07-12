@@ -18,6 +18,7 @@ Usage:
 
   options:
     -t title : Pull reuqest title (default: "Merge <base> into <head>")
+    -b body  : Pull reuqest body (default: listed merge pull requests)
     -u remote: Repository name of base branch to take merge commit
     -r remote: Repository name of head branch to take merge commit
     -h       : Show usage
@@ -143,9 +144,13 @@ ghprgen::print_pr_body() {
   : ${head:?}
   : ${pulls_api:?}
 
-  ghprgen::print_pr_header::release
-  echo
-  ghprgen::print_pr_body::merged ${base} ${head} ${pulls_api}
+  if [ "${body}" ]; then
+    echo -e "${body}"
+  else
+    ghprgen::print_pr_header::release
+    echo
+    ghprgen::print_pr_body::merged ${base} ${head} ${pulls_api}
+  fi
 }
 
 ghprgen::main() {
@@ -179,11 +184,14 @@ ghprgen::main() {
   fi
 }
 
-while getopts t:u:r:h OPT
+while getopts t:b:u:r:h OPT
 do
   case $OPT in
   t)
     title="$OPTARG"
+    ;;
+  b)
+    body="$OPTARG"
     ;;
   u)
     upstream="$OPTARG"
