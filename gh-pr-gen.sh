@@ -17,13 +17,14 @@ Usage:
     GHPRGEN_GITHUB_API_TOKEN: GitHub personal api token
 
   options:
-    -t title : Pull reuqest title (default: "Merge <base> into <head>") (wip)
-    -r remote: Use remote repository name to take merge commit (wip)
+    -t title : Pull reuqest title (default: "Merge <base> into <head>")
+    -u remote: Repository name of base branch to take merge commit
+    -r remote: Repository name of head branch to take merge commit
     -h       : Show usage
 
   example:
-    $0 yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
     GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
+    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 -t 'New Pull Request' -u upstream -r origin yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
 EOH
 }
 
@@ -57,7 +58,7 @@ ghprgen::gh::authrization_header() {
 ghprgen::git::log() {
   local base="${1}"
   local head="${2}"
-  git log --pretty=format:"%s%x0a" --reverse --merges origin/${base}..origin/${head#*:}
+  git log --pretty=format:"%s%x0a" --reverse --merges ${upstream:-origin}/${base}..${remote:-origin}/${head#*:}
 }
 
 ghprgen::print_pr_header() {
@@ -169,11 +170,14 @@ ghprgen::main() {
   fi
 }
 
-while getopts t:r:h OPT
+while getopts t:u:r:h OPT
 do
   case $OPT in
   t)
     title="$OPTARG"
+    ;;
+  u)
+    upstream="$OPTARG"
     ;;
   r)
     remote="$OPTARG"
