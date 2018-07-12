@@ -21,6 +21,7 @@ Usage:
     -b body  : Pull reuqest body (default: listed merge pull requests)
     -u remote: Repository name of base branch to take merge commit
     -r remote: Repository name of head branch to take merge commit
+    -p       : Only print pull request body
     -h       : Show usage
 
   example:
@@ -173,6 +174,12 @@ ghprgen::main() {
   local title="${title:-Merge ${head} into ${base}}"
 
   local pr_url="$(ghprgen::get_pr_url ${base} ${head} ${pulls_api})"
+
+  if ${print_only_body_flag:-false}; then
+    ghprgen::print_pr_body ${base} ${head} ${pulls_api}
+    return $?
+  fi
+
   if [ -z "${pr_url}" -o "${pr_url}" = "null" ]; then
     ghprgen::print_pr_body ${base} ${head} ${pulls_api} \
       | \
@@ -184,7 +191,7 @@ ghprgen::main() {
   fi
 }
 
-while getopts t:b:u:r:h OPT
+while getopts t:b:u:r:ph OPT
 do
   case $OPT in
   t)
@@ -198,6 +205,9 @@ do
     ;;
   r)
     remote="$OPTARG"
+    ;;
+  p)
+    print_only_body_flag="true"
     ;;
   *)
     ghprgen::usage
