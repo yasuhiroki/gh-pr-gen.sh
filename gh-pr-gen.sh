@@ -22,8 +22,8 @@ Usage:
     -h       : Show usage
 
   example:
-    $0 yasuhiroki gh-pr-gen.sh master feature-branch
-    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhiroki gh-pr-gen.sh master feature-branch
+    $0 yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
+    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
 EOH
 }
 
@@ -57,7 +57,7 @@ ghprgen::gh::authrization_header() {
 ghprgen::git::log() {
   local base="${1}"
   local head="${2}"
-  git log --pretty=format:"%s%x0a" --reverse --merges origin/${base}..origin/${head}
+  git log --pretty=format:"%s%x0a" --reverse --merges origin/${base}..origin/${head#*:}
 }
 
 ghprgen::print_pr_header() {
@@ -80,7 +80,7 @@ ghprgen::print_pr_body() {
     | \
     tr -d '#' \
     | \
-    xargs -I{} sh -c "curl -sS ${req_header:+-H "${req_header}"} '${pulls_api}'{} | jq -r '.title' | sed 's/$/ #{}/g'" \
+    xargs -I{} sh -c "curl -sS ${req_header:+-H '${req_header}'} '${pulls_api}'/{} | jq -r '.title' | sed 's/$/ #{}/g'" \
     | \
     sed 's/^/- [x] &/g'
 }
@@ -165,32 +165,28 @@ ghprgen::main() {
       ghprgen::print_pr_header
       echo
       ghprgen::print_pr_body ${base} ${head} ${pulls_api}
-    } | ghprgen::cmd::create_pr ${base} ${head} "${title}" ${pr_url}
+    } | ghprgen::cmd::update_pr ${base} ${head} "${title}" ${pr_url}
   fi
 }
 
-ghprgen::options() {
-  while getopts t:r:h OPT
-  do
-    case $OPT in
-    t)
-      title="$OPTARG"
-      ;;
-    r)
-      remote="$OPTARG"
-      ;;
-    *)
-      usage
-      exit 1
-      ;;
-    esac
-  done
-  shift $((OPTIND - 1))
-}
+while getopts t:r:h OPT
+do
+  case $OPT in
+  t)
+    title="$OPTARG"
+    ;;
+  r)
+    remote="$OPTARG"
+    ;;
+  *)
+    ghprgen::usage
+    exit 1
+    ;;
+  esac
+done
+shift $((OPTIND - 1))
 
-ghprgen::options
-
-(ghprgen::main $@) || {
+(ghprgen::main "$@") || {
   echo "Failed!"
   echo
   ghprgen::usage
