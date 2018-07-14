@@ -2,6 +2,34 @@
 
 set -e
 
+ghprgen::usage() {
+cat <<-EOH
+Usage:
+  $(basename $0) [-h] [-t title] [-r remote] <org> <repo> <base> <head>
+
+  arguments:
+    org : Creation target GitHub organization name
+    repo: Creation target GitHub repository name
+    base: Pull request source branch
+    head: Pull request target branch
+
+  envionment:
+    GHPRGEN_GITHUB_API_TOKEN: GitHub personal api token
+
+  options:
+    -t title : Pull reuqest title (default: "Merge <base> into <head>")
+    -b body  : Pull reuqest body (default: listed merge pull requests)
+    -u remote: Repository name of base branch to take merge commit
+    -r remote: Repository name of head branch to take merge commit
+    -p       : Only print pull request body
+    -h       : Show usage
+
+  example:
+    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
+    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 -t 'New Pull Request' -u upstream -r origin yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
+EOH
+}
+
 ghprgen::required_check() {
   local err=0
   for _c in git jq curl
@@ -29,11 +57,17 @@ ghprgen::gh::authrization_header() {
   fi
 }
 
-ghprgen::print_pr_header() {
+ghprgen::git::log() {
+  local base="${1}"
+  local head="${2}"
+  git log --pretty=format:"%s%x0a" --reverse --merges ${upstream:-origin}/${base}..${remote:-origin}/${head#*:}
+}
+
+ghprgen::print_pr_header::release() {
   echo "# Releases"
 }
 
-ghprgen::print_pr_body() {
+ghprgen::print_pr_body::merged() {
   local base="${1}"
   local head="${2}"
   local pulls_api="${3}"
@@ -43,13 +77,13 @@ ghprgen::print_pr_body() {
 
   local req_header="$(ghprgen::gh::authrization_header)"
 
-  git log --pretty=format:"%s" --reverse --merges ${base}..${head/*:} \
+  ghprgen::git::log "${base}" "${head}" \
     | \
     cut -d' ' -f4 \
     | \
     tr -d '#' \
     | \
-    xargs -I{} sh -c "curl -sS ${req_header:+-H "${req_header}"} '${pulls_api}'{} | jq -r '.title' | sed 's/$/ #{}/g'" \
+    xargs -I{} sh -c "curl -sS ${req_header:+-H '${req_header}'} '${pulls_api}'/{} | jq -r '.title' | sed 's/$/ #{}/g'" \
     | \
     sed 's/^/- [x] &/g'
 }
@@ -103,28 +137,21 @@ ghprgen::cmd::update_pr() {
     curl -XPATCH -sS ${req_header:+-H "${req_header}"} ${pr_url} -d @-
 }
 
-ghprgen::usage() {
-cat <<-EOH
-Usage:
-  $(basename $0) -h <org> <repo> <base> <head>
+ghprgen::print_pr_body() {
+  base="$1"
+  head="$2"
+  pulls_api="$3"
+  : ${base:?}
+  : ${head:?}
+  : ${pulls_api:?}
 
-  arguments:
-    org : Creation target GitHub organization name
-    repo: Creation target GitHub repository name
-    base: Pull request source branch
-    head: Pull request target branch
-
-  envionment:
-    GHPRGEN_GITHUB_API_TOKEN: GitHub personal api token
-
-  options:
-    -t title: pull reuqest title (default: "Merge <base> into <head>")
-    -h      : show usage
-
-  example:
-    $0 yasuhrioki gh-pr-gen.sh yasuhiroki:master feature-branch
-    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx $0 yasuhrioki gh-pr-gen.sh yasuhiroki:master feature-branch
-EOH
+  if [ "${body}" ]; then
+    echo -e "${body}"
+  else
+    ghprgen::print_pr_header::release
+    echo
+    ghprgen::print_pr_body::merged ${base} ${head} ${pulls_api}
+  fi
 }
 
 ghprgen::main() {
@@ -138,31 +165,59 @@ ghprgen::main() {
   : ${base:?}
   : ${head:?}
 
-  (( $(git log --pretty=format:"%s" --reverse --merges ${base}..${head/*:} | wc -l) > 0 )) || {
+  (( $(ghprgen::git::log "${base}" "${head}" | wc -l) > 0 )) || {
     echo "Don't have merge commit"
     return 1
   }
 
   local pulls_api="$(ghprgen::gh::api::pulls ${org} ${repo})"
-  local title="Merge ${head} into ${base}"
+  local title="${title:-Merge ${head} into ${base}}"
 
   local pr_url="$(ghprgen::get_pr_url ${base} ${head} ${pulls_api})"
+
+  if ${print_only_body_flag:-false}; then
+    ghprgen::print_pr_body ${base} ${head} ${pulls_api}
+    return $?
+  fi
+
   if [ -z "${pr_url}" -o "${pr_url}" = "null" ]; then
-    {
-      ghprgen::print_pr_header
-      echo
-      ghprgen::print_pr_body ${base} ${head} ${pulls_api}
-    } | ghprgen::cmd::create_pr ${base} ${head} "${title}" ${pulls_api}
+    ghprgen::print_pr_body ${base} ${head} ${pulls_api} \
+      | \
+    ghprgen::cmd::create_pr ${base} ${head} "${title}" ${pulls_api}
   else
-    {
-      ghprgen::print_pr_header
-      echo
-      ghprgen::print_pr_body ${base} ${head} ${pulls_api}
-    } | ghprgen::cmd::create_pr ${base} ${head} "${title}" ${pr_url}
+    ghprgen::print_pr_body ${base} ${head} ${pulls_api} \
+      | \
+    ghprgen::cmd::update_pr ${base} ${head} "${title}" ${pr_url}
   fi
 }
 
-(ghprgen::main $@) || {
+while getopts t:b:u:r:ph OPT
+do
+  case $OPT in
+  t)
+    title="$OPTARG"
+    ;;
+  b)
+    body="$OPTARG"
+    ;;
+  u)
+    upstream="$OPTARG"
+    ;;
+  r)
+    remote="$OPTARG"
+    ;;
+  p)
+    print_only_body_flag="true"
+    ;;
+  *)
+    ghprgen::usage
+    exit 1
+    ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+(ghprgen::main "$@") || {
   echo "Failed!"
   echo
   ghprgen::usage
