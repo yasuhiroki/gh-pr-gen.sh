@@ -1,0 +1,33 @@
+version: 2
+jobs:
+  create_release_pr:
+    docker:
+      - image: circleci/node:latest
+    working_directory: /app
+    steps:
+      - checkout
+      - run:
+          name: create pull request
+          command: |
+            bash gh-pr-gen.sh yasuhiroki gh-pr-gen.sh master develop
+  release:
+    docker:
+      - image: circleci/node:latest
+    working_directory: /app
+    steps:
+      - checkout
+      - run:
+          name: update version
+          command: |
+            # TODO
+
+workflows:
+  version: 2
+  release:
+    jobs:
+      - create_release_pr:
+          filters:
+            branches:
+              only:
+                - develop
+
