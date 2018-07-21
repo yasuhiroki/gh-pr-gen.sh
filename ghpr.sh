@@ -2,7 +2,7 @@
 
 set -e
 
-ghprgen::usage() {
+ghpr::usage() {
 cat <<-EOH
 Usage:
   $(basename $0) [-h] [-t title] [-r remote] <org> <repo> <base> <head>
@@ -30,7 +30,7 @@ Usage:
 EOH
 }
 
-ghprgen::required_check() {
+ghpr::required_check() {
   local err=0
   for _c in git jq curl
   do
@@ -39,35 +39,35 @@ ghprgen::required_check() {
   return $err
 }
 
-ghprgen::gh::api::endpoint_url() {
+ghpr::gh::api::endpoint_url() {
   echo "https://api.github.com"
 }
 
-ghprgen::gh::api::pulls() {
+ghpr::gh::api::pulls() {
   local org="${1}"
   local repo="${2}"
   : ${org:?}
   : ${repo:?}
-  echo "$(ghprgen::gh::api::endpoint_url)/repos/${org}/${repo}/pulls"
+  echo "$(ghpr::gh::api::endpoint_url)/repos/${org}/${repo}/pulls"
 }
 
-ghprgen::gh::authrization_header() {
+ghpr::gh::authrization_header() {
   if [ ! -z "${GHPRGEN_GITHUB_API_TOKEN}" ]; then
     echo "Authorization: token ${GHPRGEN_GITHUB_API_TOKEN}"
   fi
 }
 
-ghprgen::git::log() {
+ghpr::git::log() {
   local base="${1}"
   local head="${2}"
   git log --pretty=format:"%s%x0a" --reverse --merges ${upstream:-origin}/${base}..${remote:-origin}/${head#*:}
 }
 
-ghprgen::print_pr_header::release() {
+ghpr::print_pr_header::release() {
   echo "# Releases"
 }
 
-ghprgen::print_pr_body::merged() {
+ghpr::print_pr_body::merged() {
   local base="${1}"
   local head="${2}"
   local pulls_api="${3}"
@@ -75,9 +75,9 @@ ghprgen::print_pr_body::merged() {
   : ${head:?}
   : ${pulls_api:?}
 
-  local req_header="$(ghprgen::gh::authrization_header)"
+  local req_header="$(ghpr::gh::authrization_header)"
 
-  ghprgen::git::log "${base}" "${head}" \
+  ghpr::git::log "${base}" "${head}" \
     | \
     cut -d' ' -f4 \
     | \
@@ -88,7 +88,7 @@ ghprgen::print_pr_body::merged() {
     sed 's/^/- [x] &/g'
 }
 
-ghprgen::get_pr_url() {
+ghpr::get_pr_url() {
   local base="${1}"
   local head="${2}"
   local pulls_api="${3}"
@@ -96,13 +96,13 @@ ghprgen::get_pr_url() {
   : ${head:?}
   : ${pulls_api:?}
 
-  local req_header="$(ghprgen::gh::authrization_header)"
+  local req_header="$(ghpr::gh::authrization_header)"
 
   curl -sS ${req_header:+-H "${req_header}"} "${pulls_api}" -G -d "state=open" --data-urlencode "base=${base}" --data-urlencode "head=${head}" | jq -r '.[0].url'
 }
 
 # stdin: pull request body
-ghprgen::cmd::create_pr() {
+ghpr::cmd::create_pr() {
   local base="${1}"
   local head="${2}"
   local title="${3}"
@@ -112,7 +112,7 @@ ghprgen::cmd::create_pr() {
   : ${title:?}
   : ${pulls_api:?}
 
-  local req_header="$(ghprgen::gh::authrization_header)"
+  local req_header="$(ghpr::gh::authrization_header)"
 
   jq -sR '{title: "'"${title}"'" , body: ., base: "'"${base}"'", head: "'"${head}"'"}' \
     | \
@@ -120,7 +120,7 @@ ghprgen::cmd::create_pr() {
 }
 
 # stdin: pull request body
-ghprgen::cmd::update_pr() {
+ghpr::cmd::update_pr() {
   local base="${1}"
   local head="${2}"
   local title="${3}"
@@ -130,14 +130,14 @@ ghprgen::cmd::update_pr() {
   : ${title:?}
   : ${pr_url:?}
 
-  local req_header="$(ghprgen::gh::authrization_header)"
+  local req_header="$(ghpr::gh::authrization_header)"
 
   jq -sR '{title: "'"${title}"'" , body: ., base: "'"${base}"'"}' \
     | \
     curl -XPATCH -sS ${req_header:+-H "${req_header}"} ${pr_url} -d @-
 }
 
-ghprgen::print_pr_body() {
+ghpr::print_pr_body() {
   base="$1"
   head="$2"
   pulls_api="$3"
@@ -148,13 +148,13 @@ ghprgen::print_pr_body() {
   if [ "${body}" ]; then
     echo -e "${body}"
   else
-    ghprgen::print_pr_header::release
+    ghpr::print_pr_header::release
     echo
-    ghprgen::print_pr_body::merged ${base} ${head} ${pulls_api}
+    ghpr::print_pr_body::merged ${base} ${head} ${pulls_api}
   fi
 }
 
-ghprgen::main() {
+ghpr::main() {
   org="$1"
   repo="$2"
   base="$3"
@@ -165,29 +165,29 @@ ghprgen::main() {
   : ${base:?}
   : ${head:?}
 
-  (( $(ghprgen::git::log "${base}" "${head}" | wc -l) > 0 )) || {
+  (( $(ghpr::git::log "${base}" "${head}" | wc -l) > 0 )) || {
     echo "Don't have merge commit"
     return 1
   }
 
-  local pulls_api="$(ghprgen::gh::api::pulls ${org} ${repo})"
+  local pulls_api="$(ghpr::gh::api::pulls ${org} ${repo})"
   local title="${title:-Merge ${head} into ${base}}"
 
-  local pr_url="$(ghprgen::get_pr_url ${base} ${head} ${pulls_api})"
+  local pr_url="$(ghpr::get_pr_url ${base} ${head} ${pulls_api})"
 
   if ${print_only_body_flag:-false}; then
-    ghprgen::print_pr_body ${base} ${head} ${pulls_api}
+    ghpr::print_pr_body ${base} ${head} ${pulls_api}
     return $?
   fi
 
   if [ -z "${pr_url}" -o "${pr_url}" = "null" ]; then
-    ghprgen::print_pr_body ${base} ${head} ${pulls_api} \
+    ghpr::print_pr_body ${base} ${head} ${pulls_api} \
       | \
-    ghprgen::cmd::create_pr ${base} ${head} "${title}" ${pulls_api}
+    ghpr::cmd::create_pr ${base} ${head} "${title}" ${pulls_api}
   else
-    ghprgen::print_pr_body ${base} ${head} ${pulls_api} \
+    ghpr::print_pr_body ${base} ${head} ${pulls_api} \
       | \
-    ghprgen::cmd::update_pr ${base} ${head} "${title}" ${pr_url}
+    ghpr::cmd::update_pr ${base} ${head} "${title}" ${pr_url}
   fi
 }
 
@@ -210,16 +210,16 @@ do
     print_only_body_flag="true"
     ;;
   *)
-    ghprgen::usage
+    ghpr::usage
     exit 1
     ;;
   esac
 done
 shift $((OPTIND - 1))
 
-(ghprgen::main "$@") || {
+(ghpr::main "$@") || {
   echo "Failed!"
   echo
-  ghprgen::usage
+  ghpr::usage
 }
 
