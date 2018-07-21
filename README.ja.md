@@ -1,4 +1,4 @@
-# gh-pr-gen.sh
+# ghpr.sh
 
 GitHub の Pull Request 駆動のリリース作業を簡略化するためのツール。
 リリース用の Pull Request を自動生成し、Release の記述や tag 付けを行うことができる。
@@ -15,7 +15,7 @@ GitHub の Pull Request 駆動のリリース作業を簡略化するための�
 - tag 付けをしたら GitHub の Release を作成する
 - もしくは Changelog.md を更新する
 
-これらのタスクが億劫なので、スクリプト化したものが `gh-pr-gen.sh` である。
+これらのタスクが億劫なので、スクリプト化したものが `ghpr.sh` である。
 
 ### Why don't use `hub`
 
