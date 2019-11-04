@@ -20,7 +20,8 @@ GitHub の Pull Request 駆動のリリース作業を簡略化するための�
 ### Why don't use `hub`
 
 本ツールの機能のほとんどは [hub](https://github.com/github/hub) でも行うことができる。
-しかし hub v2.5.0 時点では、既存の Pull Request の更新ができない ([Issue](https://github.com/github/hub/issues/1650)はある。
+しかし hub v2.5.0 時点では、既存の Pull Request の更新ができない ([Issue](https://github.com/github/hub/issues/1650)はあり、 `hub pr show` でプルリクエストを表示する機能が v2.12.0 で実装された。
+
 また、Pull Request の Number から Pull Request の Title を取得できない。
 これらはいずれ解決されるだろうが今は解決されていない。しかし私が必要なのは今なので、本ツールを作っているし、使っている。
 
