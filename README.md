@@ -1,4 +1,4 @@
-# gh-pr-gen.sh
+# ghpr.sh
 
 GitHub の Pull Request 駆動のリリース作業を簡略化するためのツール。
 リリース用の Pull Request を自動生成し、Release の記述や tag 付けを行うことができる。
@@ -15,20 +15,18 @@ GitHub の Pull Request 駆動のリリース作業を簡略化するための�
 - tag 付けをしたら GitHub の Release を作成する
 - もしくは Changelog.md を更新する
 
-これらのタスクが億劫なので、スクリプト化したものが `gh-pr-gen.sh` である。
+これらのタスクが億劫なので、スクリプト化したものが `ghpr.sh` である。
 
 ### Why don't use `hub`
 
 本ツールの機能のほとんどは [hub](https://github.com/github/hub) でも行うことができる。
-しかし hub v2.5.0 時点では、既存の Pull Request の更新ができない ([Issue](https://github.com/github/hub/issues/1650)はあり、 `hub pr show` でプルリクエストを表示する機能が v2.12.0 で実装された。
-また、Pull Request の Number から Pull Request の Title を取得できない。
-これらはいずれ解決されるだろうが今は解決されていない。しかし私が必要なのは今なので、本ツールを作っているし、使っている。
+しかし hub v2.5.0 時点では、既存の Pull Request の更新ができない ([Issue](https://github.com/github/hub/issues/1650)はある)
 
 ## Usage
 
 ```console
 Usage:
-  gh-pr-gen.sh [-h] [-t title] [-r remote] <org> <repo> <base> <head>
+  ghpr.sh [-h] [-t title] [-r remote] <org> <repo> <base> <head>
 
   arguments:
     org : Creation target GitHub organization name
@@ -48,8 +46,8 @@ Usage:
     -h       : Show usage
 
   example:
-    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx ./gh-pr-gen.sh yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
-    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx ./gh-pr-gen.sh -t 'New Pull Request' -u upstream -r origin yasuhiroki gh-pr-gen.sh master yasuhiroki:feature-branch
+    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx ./ghpr.sh yasuhiroki ghpr.sh master yasuhiroki:feature-branch
+    GHPRGEN_GITHUB_API_TOKEN=xxxxxxxxxxx ./ghpr.sh -t 'New Pull Request' -u upstream -r origin yasuhiroki ghpr.sh master yasuhiroki:feature-branch
 ```
 
 # LICENSE
